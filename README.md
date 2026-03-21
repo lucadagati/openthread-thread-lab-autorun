@@ -1,6 +1,6 @@
-# OpenThread Thread Lab for Teaching
+# OpenThread Thread Lab
 
-This repository is designed for classroom use: you can use it both to **teach Thread protocol concepts** and to **run a reproducible hands-on lab** with automated checks.
+This repository provides a reproducible OpenThread lab with automated validation and clear protocol context.
 
 It includes:
 - a complete automated lab runner (`run_thread_lab.sh` + `thread_lab_autorun.exp`)
@@ -9,9 +9,9 @@ It includes:
 
 ---
 
-## 1) Learning Objectives
+## 1) Objectives
 
-By the end of this lab, students should be able to:
+By the end of this lab, you should be able to:
 - explain what Thread is and why it is used in low-power IoT networks
 - identify Thread roles (`leader`, `router`, `child`, Commissioner, Joiner)
 - create a basic Thread network and verify node attachment
@@ -21,7 +21,7 @@ By the end of this lab, students should be able to:
 
 ---
 
-## 2) Thread Protocol Theory (Short Teaching Notes)
+## 2) Thread Protocol Theory
 
 ### 2.1 What Thread Is
 
@@ -66,13 +66,13 @@ graph TD
   I --> K[Joiner]
 ```
 
-This diagram helps students connect protocol stack layers with runtime node roles.
+This diagram connects protocol stack layers with runtime node roles.
 
 ---
 
-## 2.6 Thread in Simple Words (Student-Friendly)
+## 2.6 Thread in Simple Words
 
-If you need a very simple explanation in class:
+A simple explanation:
 
 - A Thread network is like a **team of smart devices** that can pass messages to each other.
 - One device becomes **Leader** (organizes the team).
@@ -82,12 +82,12 @@ If you need a very simple explanation in class:
 - The new device asks permission as **Joiner**.
 - Once approved, the Joiner becomes part of the network and can communicate with IPv6.
 
-Think of it like a school:
-- Leader = class coordinator
-- Routers = students that relay instructions to others
-- Child = student connected to the class but not relaying
-- Commissioner = teacher checking who can enter
-- Joiner = new student asking to join
+Practical analogy:
+- Leader = coordinator
+- Routers = relays
+- Child = attached node with reduced routing responsibility
+- Commissioner = admission authority
+- Joiner = requesting node
 
 ---
 
@@ -104,7 +104,7 @@ What happens:
 - Node2 pings Node1 MLEID
 - Failover behavior is observed after stopping Thread on Node1
 
-What students should discuss:
+Interpretation:
 - `child` vs `router` transition timing
 - why ping works even as topology evolves
 - meaning of `RLOC16` and router table entries
@@ -125,7 +125,7 @@ What happens:
 - Join success is verified
 - Node2 is validated as attached (`child` or `router`)
 
-What students should discuss:
+Interpretation:
 - security purpose of commissioning
 - difference between open attachment and authorized join
 
@@ -151,7 +151,7 @@ What happens:
 - IPv6 `ping6` connectivity is verified from shell
 - optional `tcpdump` check is attempted when available
 
-What students should discuss:
+Interpretation:
 - CLI-on-node vs daemon+control-client management model
 - operational troubleshooting when node state remains `detached`
 
@@ -165,9 +165,9 @@ graph LR
 
 ---
 
-## 3.1 Step-by-Step Lab Walkthrough (Simplified)
+## 3.1 Step-by-Step Lab Walkthrough
 
-This section is meant to be read live with students.
+This section provides the operational sequence and expected evidence.
 
 ### Step 0 - Start the automation
 
@@ -177,7 +177,7 @@ Run:
 ./run_thread_lab.sh
 ```
 
-What to explain:
+Expected result:
 - Docker container is prepared
 - all lab commands are executed automatically
 - logs are checkpoints, not random text
@@ -189,7 +189,7 @@ What happens:
 - Node1 becomes `leader`
 - Node2 receives same network parameters and starts Thread
 
-What to show in output:
+Expected output evidence:
 - `Node1 is leader`
 - `Node2 is router` (or first `child`, then `router`)
 
@@ -199,11 +199,11 @@ What happens:
 - script checks router table
 - Node2 pings Node1 MLEID
 
-What to show in output:
+Expected output evidence:
 - `Router table contains Node2 RLOC16`
 - `Ping Node2->Node1 succeeded`
 
-Teaching message:
+Why this matters:
 - "network formed" is not enough, we also need packet-level proof
 
 ### Step 3 - Commissioning
@@ -213,11 +213,11 @@ What happens:
 - Node2 starts Joiner with PSKd `J01NME`
 - Join is validated
 
-What to show in output:
+Expected output evidence:
 - `Join success`
 - `Node2 joined and is child` or `Node2 joined and is router`
 
-Teaching message:
+Why this matters:
 - secure admission is a core Thread feature
 
 ### Step 4 - Daemon-based control (`ot-daemon` + `ot-ctl`)
@@ -227,11 +227,11 @@ What happens:
 - RCP path is started via `ot-daemon`
 - control is done using `ot-ctl`
 
-What to show in output:
+Expected output evidence:
 - `Spawning ot-daemon (RCP)`
 - `Spawning ot-ctl (Terminal C)`
 
-Teaching message:
+Why this matters:
 - this is closer to real gateway/controller deployments
 
 ### Step 5 - Final connectivity checks
@@ -240,7 +240,7 @@ What happens:
 - `ping6` is executed toward Node1 MLEID
 - optional `tcpdump` check is executed if available
 
-What to show in output:
+Expected output evidence:
 - `ping6 success: 0% packet loss`
 - optional `tcpdump captured traffic`
 
@@ -272,7 +272,7 @@ Optional (for extra packet capture check):
 
 ---
 
-## 6) Quick Start (Instructor / Student)
+## 6) Quick Start
 
 From this folder:
 
@@ -303,7 +303,7 @@ CONTAINER_NAME=my_thread_lab IMAGE_NAME=openthread/environment:latest ./run_thre
 
 ---
 
-## 8) How to Explain Output to Students
+## 8) How to Read Output
 
 During execution, focus on these markers:
 
@@ -362,21 +362,21 @@ docker rm -f codelab_otsim_ctnr 2>/dev/null || true
 
 ---
 
-## 11) Suggested Classroom Flow
+## 11) Suggested Execution Flow
 
-1. Explain Thread fundamentals (roles, addressing, commissioning)
-2. Run Exercise 1 and pause on router table + ping output
-3. Run Exercise 2 and discuss secure onboarding
-4. Run Exercise 3 and compare management models (`ot-cli` vs `ot-daemon`/`ot-ctl`)
-5. Ask students to map each checkpoint to the protocol concept it proves
+1. Review protocol fundamentals (roles, addressing, commissioning)
+2. Run Exercise 1 and verify topology + ping evidence
+3. Run Exercise 2 and verify secure onboarding
+4. Run Exercise 3 and compare `ot-cli` vs `ot-daemon`/`ot-ctl`
+5. Map each checkpoint to the protocol behavior it validates
 
 ```mermaid
 flowchart TD
-  S1[Explain Thread Fundamentals] --> S2[Run Exercise 1]
-  S2 --> S3[Pause: router table + ping discussion]
+  S1[Review Thread Fundamentals] --> S2[Run Exercise 1]
+  S2 --> S3[Verify router table and ping]
   S3 --> S4[Run Exercise 2]
-  S4 --> S5[Pause: commissioning security discussion]
+  S4 --> S5[Verify commissioning and join]
   S5 --> S6[Run Exercise 3]
-  S6 --> S7[Debrief: protocol evidence from logs]
+  S6 --> S7[Validate protocol evidence from logs]
 ```
 
