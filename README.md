@@ -70,6 +70,27 @@ This diagram helps students connect protocol stack layers with runtime node role
 
 ---
 
+## 2.6 Thread in Simple Words (Student-Friendly)
+
+If you need a very simple explanation in class:
+
+- A Thread network is like a **team of smart devices** that can pass messages to each other.
+- One device becomes **Leader** (organizes the team).
+- Some devices become **Router** (help carry messages).
+- Some devices stay **Child** (connected, but less routing work).
+- New devices cannot enter directly: they must be approved by a **Commissioner**.
+- The new device asks permission as **Joiner**.
+- Once approved, the Joiner becomes part of the network and can communicate with IPv6.
+
+Think of it like a school:
+- Leader = class coordinator
+- Routers = students that relay instructions to others
+- Child = student connected to the class but not relaying
+- Commissioner = teacher checking who can enter
+- Joiner = new student asking to join
+
+---
+
 ## 3) Lab Structure
 
 The automated flow runs three exercises:
@@ -141,6 +162,93 @@ graph LR
   C -->|join/start/state| B
   B -->|IPv6 traffic| D[Node1 MLEID ping6]
 ```
+
+---
+
+## 3.1 Step-by-Step Lab Walkthrough (Simplified)
+
+This section is meant to be read live with students.
+
+### Step 0 - Start the automation
+
+Run:
+
+```bash
+./run_thread_lab.sh
+```
+
+What to explain:
+- Docker container is prepared
+- all lab commands are executed automatically
+- logs are checkpoints, not random text
+
+### Step 1 - Build first Thread network
+
+What happens:
+- Node1 creates dataset and starts Thread
+- Node1 becomes `leader`
+- Node2 receives same network parameters and starts Thread
+
+What to show in output:
+- `Node1 is leader`
+- `Node2 is router` (or first `child`, then `router`)
+
+### Step 2 - Verify communication
+
+What happens:
+- script checks router table
+- Node2 pings Node1 MLEID
+
+What to show in output:
+- `Router table contains Node2 RLOC16`
+- `Ping Node2->Node1 succeeded`
+
+Teaching message:
+- "network formed" is not enough, we also need packet-level proof
+
+### Step 3 - Commissioning
+
+What happens:
+- Node1 starts Commissioner role
+- Node2 starts Joiner with PSKd `J01NME`
+- Join is validated
+
+What to show in output:
+- `Join success`
+- `Node2 joined and is child` or `Node2 joined and is router`
+
+Teaching message:
+- secure admission is a core Thread feature
+
+### Step 4 - Daemon-based control (`ot-daemon` + `ot-ctl`)
+
+What happens:
+- Node1 forms another network
+- RCP path is started via `ot-daemon`
+- control is done using `ot-ctl`
+
+What to show in output:
+- `Spawning ot-daemon (RCP)`
+- `Spawning ot-ctl (Terminal C)`
+
+Teaching message:
+- this is closer to real gateway/controller deployments
+
+### Step 5 - Final connectivity checks
+
+What happens:
+- `ping6` is executed toward Node1 MLEID
+- optional `tcpdump` check is executed if available
+
+What to show in output:
+- `ping6 success: 0% packet loss`
+- optional `tcpdump captured traffic`
+
+### Step 6 - End condition
+
+Successful run ends with:
+- `AUTORUN COMPLETED SUCCESSFULLY`
+- `Thread lab autorun finished.`
 
 ---
 
