@@ -257,6 +257,7 @@ Successful run ends with:
 - `run_thread_lab.sh`: entrypoint and preflight checks
 - `thread_lab_autorun.exp`: full Expect automation script
 - `lab - OpenThread.pdf`: supporting slide deck
+- `.gitignore`: ignores OS files, logs and captures
 
 ---
 
@@ -266,6 +267,8 @@ Successful run ends with:
 - Docker Desktop / Docker Engine running
 - `expect` installed
   - macOS: `brew install expect`
+
+Tested versions: none; the lab was **not run in this environment** (see Verification status). Expected tooling: Docker Engine/Desktop 20.10+, `expect` 5.45+ (Tcl 8.6), Bash 3.2+ (macOS default is fine), network access to Docker Hub. The container image `openthread/environment:latest` is unpinned, so behaviour can change when it is updated; pin a tag or digest through `IMAGE_NAME` for reproducible runs.
 
 Optional (for extra packet capture check):
 - `tcpdump` available in container image (if missing, check is skipped)
@@ -302,6 +305,45 @@ CONTAINER_NAME=my_thread_lab IMAGE_NAME=openthread/environment:latest ./run_thre
 ```
 
 ---
+
+### Architecture of the automation
+
+```mermaid
+flowchart LR
+  U[run_thread_lab.sh] -->|checks docker + expect| E[thread_lab_autorun.exp]
+  E -->|docker run -d| C[(Container: openthread/environment)]
+  E -->|docker exec -it ot-cli-ftd 1| N1[Node1 CLI]
+  E -->|docker exec -it ot-cli-ftd 2| N2[Node2 CLI]
+  E -->|docker exec ot-daemon + ot-ctl| D[RCP node via ot-daemon]
+  C --- N1
+  C --- N2
+  C --- D
+```
+
+The Expect script drives each CLI by sending commands and matching output with regular expressions (network key = 32 hex chars, PAN ID = `0x` + 4 hex chars, ML-EID = address starting with `fd`). Binaries are taken from the image under `/openthread/build/...`.
+
+## 7.1) Verification status
+
+| Item | Status |
+|------|--------|
+| `bash -n run_thread_lab.sh` | verified |
+| Tcl syntax of `thread_lab_autorun.exp` is complete (`info complete` with `tclsh`) | verified |
+| Full run (Docker image pull, OpenThread simulation, commissioning, `ot-daemon`, `ping6`, `tcpdump`) | not verified in this environment (no `expect`, no OpenThread image) |
+
+## 7.2) Limitations and security
+
+- The script **force-removes** any container named `CONTAINER_NAME` (`docker rm -f`) before starting. Keep the default name or choose one that is not used by other work.
+- The container is started with `--cap-add=net_admin` and creates `/dev/net/tun`; it does not use `--privileged`. Do not run it on a host where this is not acceptable.
+- Network key, PAN ID and the joiner PSKd `J01NME` are throw-away lab values generated/used inside a disposable container; do not reuse `J01NME` on real devices.
+- Timeouts are fixed (e.g. 130 s waiting for `router`); slow machines may fail spuriously.
+- The Exercise 1 failover check is intentionally lightweight: it accepts `router` as well as `leader`.
+- The final `ping6` check passes only if the packet-loss summary is 0%; partial loss prints a warning, 100% loss fails the run.
+
+## 7.3) Extending the lab
+
+- Add a node: copy the Node2 block in `thread_lab_autorun.exp` (`ot-cli-ftd 3`), set the same `networkkey` and `panid`.
+- Change the joiner credential: replace `J01NME` consistently in `start_commissioner_and_allow_wildcard`, `joiner_start_wait_success` and Exercise 3.
+- Add checkpoints: use `send_cmd_and_expect` and `verify_state_exact` helpers.
 
 ## 8) How to Read Output
 
@@ -351,6 +393,14 @@ If Docker is unhealthy, restart Docker and rerun:
 brew install expect
 ./run_thread_lab.sh
 ```
+
+### `Timeout waiting` / `Node2 did not reach router state in time`
+
+The machine may be slow or the image changed. Re-run; if it persists, run the commands manually in `docker exec -it codelab_otsim_ctnr /openthread/build/examples/apps/cli/ot-cli-ftd 1`.
+
+### `ping6 failed` in Exercise 3
+
+Check that IPv6 is enabled in Docker (the script sets `net.ipv6.conf.all.disable_ipv6=0`) and that `/dev/net/tun` exists in the container.
 
 ### Fresh cleanup
 

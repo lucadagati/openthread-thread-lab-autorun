@@ -24,11 +24,7 @@ proc fail {msg} {
   exit 1
 }
 
-# Wait for `>` prompt in a given spawn_id.
-proc wait_prompt {sid} {
-  upvar 0 sid var
-}
-
+# Wait for a prompt matching `re` in a given spawn_id.
 proc wait_prompt_re {sid re} {
   expect -i $sid -re $re
 }
@@ -154,22 +150,6 @@ proc capture_dataset_panid {sid} {
   return $pan_id
 }
 
-proc wait_state_until {sid target {max_sec 120} {interval_sec 5}} {
-  set start [clock seconds]
-  while {1} {
-    set elapsed [expr {[clock seconds] - $start}]
-    if {$elapsed > $max_sec} {
-      fail "Timeout waiting for state=$target"
-    }
-    send -i $sid -- "state\r"
-    # Example: output ends with keyword then prompt.
-    expect -i $sid -re $target
-    expect -i $sid -re {>\s*$}
-    # Success if keyword appears (above expect ensures it).
-    return 1
-  }
-}
-
 proc verify_state_exact {sid expected} {
   send -i $sid -- "state\r"
   expect -i $sid -re $expected
@@ -248,7 +228,7 @@ proc wait_rcp_state {sid {max_sec 120}} {
   return "detached"
 }
 
-proc otctl_join_restricted_and_start_thread {sid_otctl commissioner_eui64 eid} {
+proc otctl_join_restricted_and_start_thread {sid_otctl joiner_eui64 eid} {
   # This proc is used after Node1 already configured.
   # ot-ctl flow:
   send_cmd_wait_prompt $sid_otctl "ifconfig up" {>\s*$}
@@ -440,7 +420,7 @@ verify_state_exact $sid1 "leader"
 set node1_eid3 [capture_ipaddr_eid $sid1]
 log "Node1 EID for ping6: $node1_eid3"
 
-set commissioner_eui64 ""
+set joiner_eui64 ""
 
 # Ensure TUN exists
 make_tun $container
@@ -466,26 +446,26 @@ expect -i $sid_ctl -re {>\s*}
 
 # Get eui64 for RCP and restrict join to it
 send -i $sid_ctl -- "eui64\r"
-set commissioner_eui64 ""
+set joiner_eui64 ""
 expect -i $sid_ctl {
   -re {([0-9a-fA-F]{8,})\r?\n} {
-    set commissioner_eui64 $expect_out(1,string)
+    set joiner_eui64 $expect_out(1,string)
   }
   timeout {
     # Keep empty; we'll fallback below.
   }
 }
 catch {expect -i $sid_ctl -re {>\s*}}
-if {$commissioner_eui64 eq ""} {
-  set commissioner_eui64 "*"
+if {$joiner_eui64 eq ""} {
+  set joiner_eui64 "*"
   log "RCP eui64 not parsed; falling back to wildcard joiner admission"
 } else {
-  log "RCP eui64: $commissioner_eui64"
+  log "RCP eui64: $joiner_eui64"
 }
 
-# Start Commissioner role on Node1 (restricted)
+# Start Commissioner role on Node1 (restricted to the RCP's EUI-64)
 send_cmd_wait_prompt $sid1 "commissioner start" {>\s*$}
-send_cmd_wait_prompt $sid1 "commissioner joiner add $commissioner_eui64 J01NME" {>\s*$}
+send_cmd_wait_prompt $sid1 "commissioner joiner add $joiner_eui64 J01NME" {>\s*$}
 
 # Join via ot-ctl and start thread on RCP
 send_cmd_wait_prompt $sid_ctl "ifconfig up" {>\s*}
@@ -522,16 +502,17 @@ catch {expect -i $sid_ctl -re {eof}}
 # Validate connectivity using ping6 from container shell
 log "Pinging Node1 EID from container shell (ping6)"
 set ping_out [docker_exec_capture $container "ping6 -c 4 $node1_eid3 2>&1 || true"]
-if {[string match -nocase {*0% packet loss*} $ping_out]} {
-  log "ping6 success: 0% packet loss"
-} else {
-  # Fallback: accept if we saw 4 replies
-  if {[string match -nocase {*packets received, 0% packet loss*} $ping_out] || [regexp -nocase {(\d+) packets received} $ping_out]} {
-    log "ping6 completed; verify output manually:"
+if {[regexp -nocase {(\d+)% packet loss} $ping_out -> loss]} {
+  if {$loss == 0} {
+    log "ping6 success: 0% packet loss"
+  } elseif {$loss < 100} {
+    log "ping6 partial success (${loss}% packet loss); verify output manually:"
     puts $ping_out
   } else {
-    fail "ping6 did not succeed (expected 0% packet loss). Output:\n$ping_out"
+    fail "ping6 failed (100% packet loss). Output:\n$ping_out"
   }
+} else {
+  fail "ping6 produced no packet-loss summary. Output:\n$ping_out"
 }
 
 # tcpdump verification (Exercise 3 last slide)
